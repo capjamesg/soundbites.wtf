@@ -6,6 +6,7 @@ import librosa
 from sklearn.metrics.pairwise import cosine_similarity
 import laion_clap
 import json
+import datetime
 
 import warnings
 
@@ -15,7 +16,13 @@ warnings.filterwarnings("ignore", category=UserWarning)
 model = laion_clap.CLAP_Module(enable_fusion=False)
 model.load_ckpt()
 
-prompt = "clap"
+with open("prompts.txt", "r") as f:
+    prompts = f.readlines()
+
+date = datetime.datetime.now()
+
+prompt = prompts[date.day % len(prompts)].strip()
+
 embedded_prompt = model.get_text_embedding([prompt, "something else"])
 
 # leaderboard is json, create if not exists
