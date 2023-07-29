@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="https://glitch.com/favicon.ico" />
+
+    <link rel="manifest" href="https://swifties.me/static/manifest.json" />
+    <title>soundbites.wtf</title>
+
+    <link rel="stylesheet" href="https://swifties.me/static/style.css" />
+
+    <meta name="description" content="Compete to make a sound closest to the day's prompt." />
+
+    <style>
+        :root {
+            --color-bg: #f7f7f7;
+        }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="content">
+        <div class="instructions">
+          <h1 class="title">soundbites.wtf 🎵</h1>
+          <p>
+            Compete to make a sound closest to the day's prompt.
+          </p>
+          <p>
+            Today's prompt is <strong>{{ prompt }}</strong>.
+          </p>
+
+          <h2>Leaderboard</h2>
+
+          <ul class="leaderboard">
+            {% for entry in leaderboard %}
+                <li>
+                    <span class="number">{{ entry.rank }}</span>
+                    <span class="user">{{ entry.username }}</span>
+                    <span class="sound">
+                        <button onclick="playSound('{{ entry.sound }}')">
+                            Listen
+                        </button>
+                    </span>
+                </li>
+            {% endfor %}
+          </ul>
+          <p id="similarity" style="display: none;"></p>
+          <h2>Play the Game</h2>
+          <label for="username">Select a username</label>
+          <input type="text" id="username" placeholder="Username" style="width: 100%;">
+          <p>Your audio clip will be saved so others can listen to it.</p>
+          <button onclick="play()" id="play" style="width: 100%;">
+            Play ✅
+          </button>
+          <style>
+            label {
+                font-weight: bold;
+                padding-bottom: 10px;
+                display: block;
+            }
+            .leaderboard {
+              list-style-type: none;
+              display: flex;
+              border-radius: 10px;
+            }
+            .leaderboard li {
+                background-color: #86f4ac;
+                border-radius: 10px;
+                width: 100%;
+                margin-bottom: 10px;
+                padding: 10px;
+            }
+            .leaderboard .number {
+              background-color: white;
+              flex: 0 10%;
+              padding: 10px;
+              border-radius: 10px;
+            }
+            .leaderboard .user {
+              flex: 1 70%;
+              text-align: right;
+              padding: 10px;
+            }
+            .leaderboard .sound {
+              flex: 1 20%;
+              text-align: right;
+              padding: 10px;
+            }
+            ul:first-child {
+              background-color: purple;
+            }
+            #similarity {
+              font-size: 18px;
+              background-color: #f7f7f7;
+              padding: 10px;
+            }
+            #play {
+              margin-top: 20px;
+            }
+            ul {
+              padding: 0;
+            }
+            .leaderboard {
+              background-color: #f7f7f7;
+              list-style-type: none;
+              display: flex;
+              border-radius: 10px;
+            }
+            .leaderboard .number {
+              background-color: white;
+              flex: 0 10%;
+              padding: 10px;
+              border-radius: 10px;
+            }
+            .leaderboard .user {
+              flex: 1 70%;
+              text-align: right;
+              padding: 10px;
+            }
+            ul:first-child {
+              background-color: purple;
+            }
+            label {
+              font-weight: bold;
+            }
+          </style>
+        </div>
+      
+        <footer class="footer">
+          <a
+            href="https://jamesg.blog"
+          >
+            Made by capjamesg
+          </a>
+        </footer>
+      </div>
+    </div>
+    <script>
+      var playing = false;
+      var mediaRecorder = null;
+      var chunks = [];
+
+      function playSound(mov_link) {
+        var audio = new Audio(mov_link);
+        audio.play();
+      }
+      
+      function play() {
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            // playing = true;
+            console.log("getUserMedia supported.");
+            navigator.mediaDevices
+              .getUserMedia(
+                {
+                  audio: true,
+                }
+              )
+
+              // Success callback
+              .then((stream) => {
+                  if (playing) {
+                      mediaRecorder.stop();
+                  }
+                    playing = true;
+                      var button = document.getElementById("play");
+                      button.innerHTML = "Stop 🛑";
+
+                  mediaRecorder = new MediaRecorder(stream);
+
+                  mediaRecorder.ondataavailable = (e) => {
+                    console.log(e.data);
+                    chunks.push(e.data);
+                  };
+
+                  // add ios listener
+                  if (mediaRecorder.state == "inactive") {
+                    mediaRecorder.start();
+                  }
+                  mediaRecorder.onstop = (e) => {
+                      var button = document.getElementById("play");
+                      button.innerHTML = "Play 🎮";
+
+                      // post to server at localhost:5000, send as mp
+                      const blob = new Blob(chunks, { type: "video/mp4" });
+                      // const audioURL = window.URL.createObjectURL(blob);
+                      // audio.src = audioURL;
+
+                      // post as WAV file
+                      const formData = new FormData();
+
+                      formData.append("file", blob, "audio.wav");
+                      formData.append("username", document.getElementById("username").value);
+
+                      // add . . .. load to #similarity
+                      var loading_indicator = document.getElementById("similarity");
+                      loading_indicator.style.display = "block";
+
+                      loading_indicator.innerHTML = "Loading.";
+                      
+                      var timer = setTimeout(function() {
+                        var loading_indicator = document.getElementById("similarity");
+                        if (loading_indicator.innerHTML == "Loading.") {
+                          loading_indicator.innerHTML = "Loading..";
+                        } else if (loading_indicator.innerHTML == "Loading..") {
+                          loading_indicator.innerHTML = "Loading...";
+                        } else if (loading_indicator.innerHTML == "Loading...") {
+                          loading_indicator.innerHTML = "Loading.";
+                        }
+                      }, 500);
+
+                      fetch("https://127.0.0.1:8084/", {
+                        method: "POST",
+                        body: formData,
+                      })
+                        .then((response) => response.json())
+                        .then((data) => {
+                          console.log("Success:", data);
+                          // round to 2 decimal places
+                          data.similarity = Math.round(data.similarity * 100) / 100;
+                          // turn into %
+                          data.similarity = data.similarity * 100;
+                          playing = false;
+                          clearTimeout(timer);
+                        })
+                        .catch((error) => {
+                          console.error(error);
+                        });
+
+                      chunks = [];
+                  };
+              })
+
+              // Error callback
+              .catch((err) => {
+                console.error(`The following getUserMedia error occurred: ${err}`);
+              });
+          } else {
+            console.log("getUserMedia not supported on your browser!");
+          }
+      }
+    </script>
+  </body>
+</html>
